@@ -90,6 +90,8 @@ Because it’s:
 
 It’s a **discipline layer**: a small OS-like structure that makes LLM work durable.
 
+	LIMO: the “limousine” for LLM workspaces - carries goals, state, decisions, and learnings across sessions.
+
 ---
 
 ## License
