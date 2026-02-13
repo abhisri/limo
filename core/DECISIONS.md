@@ -1,15 +1,24 @@
+
 # Decisions
 
-Last updated: YYYY-MM-DD HH:MM TZ  
-Freshness target: 90 days
+Last updated: YYYY-MM-DD HH:MM TZ
+Freshness target: 90 days (decisions are slow-changing)
 
-Format:
-- Date: YYYY-MM-DD
+## Purpose
+A log of decisions that affect future work, so you don’t re-litigate the same choice.
+
+## What belongs here
+- irreversible choices,
+- “we stopped doing X and why”,
+- chosen baselines,
+- chosen metrics,
+- interface contracts.
+
+## Entry format
+### D-YYYMMDD-01 — <short title>
+- Date:
 - Decision:
-- Why:
-- Alternatives:
+- Rationale:
+- Alternatives considered:
 - Evidence:
-- Revisit triggers:
-
-## Log
-- (append)
+- Consequences / follow-ups:
