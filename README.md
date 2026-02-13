@@ -3,7 +3,7 @@
 LIMO is a lightweight, file-based “memory + workflow spine” for long-running LLM work.
 It turns LLM sessions into a **restartable process** using plain Markdown files: goals, open items, decisions, invariants, learnings, and session diaries.
 
-If a session ends, context rolls off, a VM resets, or you switch tools/models — you can reboot in minutes by re-reading the workspace files and continuing from a clear “source of truth”.
+If a session ends, context rolls off, an agent runtime resets (e.g., a sandbox/VM gets wiped), or you switch tools/models, you can reboot in minutes by re-reading the workspace files and continuing from a clear “source of truth”.
 
 **Default: single-agent (solo).**  
 **Optional: multi-agent (Coordinator/Worker)** for teams or dual-agent setups.
