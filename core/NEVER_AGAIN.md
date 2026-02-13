@@ -1,18 +1,25 @@
+
 # Never Again Log
 
-Last updated: YYYY-MM-DD HH:MM TZ  
-Freshness target: 180 days
+Last updated: YYYY-MM-DD HH:MM TZ
+Freshness target: 180 days (long-lived)
 
-Purpose: convert avoidable failures into permanent gates.
+## Purpose
+Convert avoidable failures into permanent gates.
 
-Format:
+## What belongs here
+- repeated failure patterns,
+- expensive mistakes,
+- “we learned this the hard way” items,
+- guardrails that prevent regressions.
+
+## Entry format
+### NA-YYYMMDD-01 — <short title>
 - Symptom:
-- Cause:
-- Prevention gate:
-- Evidence signal:
+- Root cause:
+- Prevention gate (what you must do next time):
+- Evidence signal (how you detect it early):
+- Fix / playbook reference:
 
-## NA-001
-- Symptom:
-- Cause:
-- Prevention gate:
-- Evidence signal:
+## Entries
+(Write entries as you discover them.)

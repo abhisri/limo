@@ -1,21 +1,33 @@
+
 # Status Snapshot
 
-Last updated: YYYY-MM-DD HH:MM TZ  
-Freshness target: 7 days (during active work)
+Last updated: YYYY-MM-DD HH:MM TZ
+Freshness target: 7–14 days (adjust per domain)
 
-## Goal (1 line)
+## Purpose
+Single source of truth for **what is currently true**.
+If the chat context dies, this file is how you regain orientation in 60 seconds.
+
+## Current objective (one line)
+- TBD
 
 ## Current phase
-(ingest / debug / reconcile / synthesize / ship)
+Examples: ingest / debug / reconcile / model / writeup / ship / review / handoff
+- TBD
 
-## What’s done
+## What is true right now (facts only)
+- TBD
 
-## What’s next (top 3)
+## Latest artifacts (paths)
+- TBD
+
+## Top 3 next actions
+1. TBD
+2. TBD
+3. TBD
 
 ## Blockers
-- [Owner] blocker → next action
+- TBD
 
-## Latest artifacts
-- path → meaning
-
-## Risks / gotchas
+## Risks / watch-outs
+- TBD
