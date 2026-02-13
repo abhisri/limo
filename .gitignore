@@ -1,0 +1,26 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+**/EC2_DETAILS.md
+**/*secrets*
+**/*.pem
+**/*.key
+
+# Large artifacts
+artifacts/
+outputs/
+data/
+*.zip
+*.tar
+*.gz
+
+# IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
