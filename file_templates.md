@@ -133,6 +133,16 @@ Freshness target: 7 days
 - [Things that could go wrong or need watching]
 ```
 
+**Coding domain enhancement:** Add these sections when the domain involves a codebase:
+```markdown
+## Build status
+- **Compiles:** [Yes/No + command]
+- **Tests:** [X/Y suites pass. Note any failures with root cause.]
+
+## Technical debt
+- [Brief list of known debt: dead code, migration state, duplicate files, etc.]
+```
+
 ---
 
 ## GOALS.md
@@ -195,6 +205,21 @@ Freshness target: 7 days
 
 **Priority levels:** URGENT, HIGH, MEDIUM, LOW, OPEN, WAITING
 **Status tags:** Active items are being worked. Parking Lot items are deferred with reason.
+
+**Coding domain enhancement:** For codebase domains, group active items by category:
+```markdown
+## Active
+
+### Codebase Cleanup (do first)
+- OI-[D]-010 | Owner | — | HIGH | Delete dead files in legacy directory | [Context]
+- OI-[D]-011 | Owner | — | MED | Resolve duplicate .ts/.js pairs | [Context]
+
+### Core Development
+- OI-[D]-020 | Owner | — | HIGH | Implement [feature] | [Context]
+
+### Documentation
+- OI-[D]-030 | Owner | — | MED | Consolidate paper drafts | [Context]
+```
 
 ---
 
@@ -312,6 +337,51 @@ Freshness target: 180 days
 - Evidence signal: [How to detect you're about to make this mistake again]
 - Fix: [What to do instead]
 ```
+
+---
+
+## ARCHITECTURE.md (optional — include when domain involves a codebase)
+
+```markdown
+# Architecture — [Domain Name]
+
+Last updated: [DATE]
+Freshness target: 90 days
+
+## The Big Picture
+[2-3 sentences: what the system does, what the core thesis/approach is, what it is NOT.]
+
+## System Architecture
+[High-level diagram using ASCII art or description of layers/services/modules. Show data flow.]
+
+## Core Modules
+
+### [Module 1 Name]
+[What it does. Key sub-components if any.]
+
+### [Module 2 Name]
+[What it does.]
+
+## Module-to-File Mapping
+
+| Module | File(s) | Status |
+|:-------|:--------|:-------|
+| [Module 1] | `src/path/to/file.ts` | ✅ Active |
+| [Module 2] | `src/path/to/other.ts` | ✅ Active |
+| [Module 3] | `legacy/old_file.ts` | ⚠️ Legacy — port to new arch |
+| [Module 4] | — | 🔲 Not yet implemented |
+
+## Key Concepts
+- **[Concept 1]**: [1-sentence definition]
+- **[Concept 2]**: [1-sentence definition]
+
+## Build & Test
+- **Build command:** `[command]`
+- **Test command:** `[command]`
+- **Key config files:** `[tsconfig.json, package.json, etc.]`
+```
+
+**Population guidance:** This file bridges the conceptual architecture to the actual code. The module-to-file mapping table is the highest-value section — it tells a cold-start agent exactly where to find things without exploring the whole codebase. Update the Status column as modules move between active/legacy/planned.
 
 ---
 
@@ -467,6 +537,23 @@ Freshness target: 30 days
 - `CLAUDE-PROJECTS/USER_PROFILE.md`
 - `CLAUDE-PROJECTS/CLAUDE_BOOT_PROMPT.md`
 - `CLAUDE-PROJECTS/CLAUDE_BRAIN_TRANSFER.md`
+```
+
+**Coding domain enhancement:** For domains with a codebase, the folder map should include the source tree with status annotations. Use these markers:
+- `← ✅ ACTIVE` for current implementation files
+- `← ⚠️ LEGACY` or `← ⚠️ DEAD CODE` for files that should be migrated or deleted
+- `← 🔲 PLANNED` for directories/files that don't exist yet
+- Brief inline comments explaining what each directory/file does
+
+Also add a **Memory Tier Mapping** table showing which LIMO files serve which cognitive layer:
+```markdown
+## Memory Tier Mapping
+| Tier | Files |
+|:-----|:------|
+| **Declarative** (facts, context) | SESSION_PROMPT, SESSION_DIARY, START_HERE, ARCHITECTURE |
+| **Behavioral** (learned patterns) | LEARNINGS, NEVER_AGAIN, INVARIANTS |
+| **Working** (current state) | STATUS_SNAPSHOT, GOALS, OPEN_ITEMS, DECISIONS |
+| **Protocol** (how to operate) | AI_AGENTS_READ_THIS_FIRST, CONTEXT_RESTORE_PROTOCOL, MEMORY_COMPRESSION_PROTOCOL, FOLDER_MAP |
 ```
 
 ---

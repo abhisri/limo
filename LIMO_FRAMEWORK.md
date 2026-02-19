@@ -51,6 +51,7 @@ CLAUDE-PROJECTS/                          ← Root
 │           ├── LEARNINGS.md
 │           ├── NEVER_AGAIN.md
 │           ├── KEY_PEOPLE.md             ← If domain involves people/relationships
+│           ├── ARCHITECTURE.md           ← If domain involves a codebase
 │           ├── CONTEXT_RESTORE_PROTOCOL.md
 │           ├── MEMORY_COMPRESSION_PROTOCOL.md
 │           ├── FOLDER_MAP.md
@@ -160,6 +161,7 @@ Domains can add sections as needed (e.g., key relationships, personality markers
 - **Finance:** Accounts, cash flow, investments, obligations, projections
 - **Hobby:** Skill level, equipment, goals, exercises, environments
 - **Work/Career:** Role, projects, team, OKRs, blockers
+- **Coding/Engineering:** Architecture overview, module map, build status, tech debt, codebase conventions, standing instructions
 
 ---
 
@@ -325,6 +327,49 @@ milestone-only diary updates, write only to own domain, unreadable input → blo
 
 ---
 
+### Layer 6b: Architecture (optional, for domains involving a codebase)
+
+#### ARCHITECTURE.md
+**Purpose:** System design overview with module-to-file mapping. Gives the AI a mental model of the codebase so it can navigate without exploring blindly.
+**Freshness target:** 90 days
+**When to include:** Any domain that involves building or maintaining a codebase — software projects, research prototypes, scripts collections.
+**Format:**
+```markdown
+# Architecture — [Domain Name]
+Last updated: [DATE]
+Freshness target: 90 days
+
+## The Big Picture
+[2-3 sentences: what the system does, what the core thesis/approach is, what it is NOT.]
+
+## System Architecture
+[High-level diagram using ASCII art or description of layers/services/modules. Show data flow.]
+
+## Core Modules
+### [Module 1 Name]
+[What it does. Key sub-components if any.]
+
+## Module-to-File Mapping
+| Module | File(s) | Status |
+|:-------|:--------|:-------|
+| [Module 1] | `src/path/to/file.ts` | ✅ Active |
+| [Module 2] | `src/path/to/other.ts` | ✅ Active |
+| [Module 3] | `legacy/old_file.ts` | ⚠️ Legacy — port to new arch |
+| [Module 4] | — | 🔲 Not yet implemented |
+
+## Key Concepts
+- **[Concept 1]**: [1-sentence definition]
+
+## Build & Test
+- **Build command:** `[command]`
+- **Test command:** `[command]`
+- **Key config files:** `[tsconfig.json, package.json, etc.]`
+```
+
+**Relationship to SESSION_PROMPT:** ARCHITECTURE.md is the structural reference; SESSION_PROMPT is the behavioral reference. SESSION_PROMPT says "how we work here" — ARCHITECTURE.md says "what we built and where things live."
+
+---
+
 ### Layer 7: Memory Management
 
 #### SESSION_DIARY.md
@@ -424,6 +469,7 @@ This is the behavioral adaptation loop. These updates happen IMMEDIATELY when th
 | `SESSION_DIARY.md` | Meaningful milestone reached | One-line entry with timestamp |
 | `INVARIANTS.md` | A new rule emerges that should never be broken | Append with enforcement |
 | `KEY_PEOPLE.md` | New person introduced or status changes | Update or add entry |
+| `ARCHITECTURE.md` | Module added/removed, file mapping changes, build config changes | Update module table and mapping |
 | `USER_PROFILE.md` | Something changes the cross-domain story of who the user is | Update with session attribution |
 
 **CRITICAL:** The write-back loop is what makes LIMO a living system. Without it, files go stale and the next session starts from outdated context.
@@ -446,6 +492,7 @@ Every file has a freshness target. If a file's "Last updated" is older than its 
 | INVARIANTS | 30 days | Rules change rarely |
 | FOLDER_MAP | 30 days | Structure changes rarely |
 | KEY_PEOPLE | 30 days | People change moderately |
+| ARCHITECTURE | 90 days | System design changes slowly |
 | START_HERE / AI_AGENTS_READ_FIRST | 30 days | Bootstrap changes rarely |
 | LEARNINGS | 60 days | Insights accumulate slowly |
 | BRAIN_TRANSFER | 60 days | Behavioral patterns are stable |
@@ -499,4 +546,6 @@ LIMO evolved across four implementations:
 
 **Finance (v4):** The most mature implementation. Introduced Evidence field in DECISIONS, "Why it matters" in LEARNINGS, session handover and cross-domain boot prompt patterns (now in Advanced Patterns), and demonstrated the full domain lifecycle from creation through forking. See `references/advanced_patterns.md` for Finance-specific patterns that complex domains may want to adopt.
 
-This synthesized framework (v2.1) incorporates the universal patterns from all four implementations, with domain-specific advanced patterns available separately.
+**ECN/Coding (v5):** First engineering/codebase domain. Added ARCHITECTURE.md (system design + module-to-file mapping). Enhanced FOLDER_MAP with status annotations (✅ ACTIVE, ⚠️ LEGACY, 🔲 PLANNED). Added build/test status and technical debt tracking to STATUS_SNAPSHOT. Category headers in OPEN_ITEMS for organizing cleanup vs. development vs. documentation work. Demonstrated that LIMO works for code projects, not just life/knowledge domains.
+
+This synthesized framework (v2.1) incorporates the universal patterns from all five implementations, with domain-specific advanced patterns available separately.
