@@ -12,11 +12,29 @@ Then the session crashes. Or the context window fills up. Or the sandbox resets.
 
 **Everything is gone.** You start the next session with "where were we?" and spend 30 minutes re-explaining context that the AI will only half-remember. Decisions get re-litigated. Mistakes get repeated. The same dead ends get explored again.
 
-This isn't a model problem — it's a **memory problem**. LLMs have no durable working memory across sessions. Every restart is a cold start.
+And if you switch tools? It’s worse.
+Claude doesn't know what Codex did.
+Codex doesn’t know why Cursor rejected that refactor.
+
+This isn't a model problem — it's a **memory and state coordination problem**. LLMs have no durable working memory across sessions. Every restart or tool switch is a cold start.
 
 ## The Solution
 
-LIMO gives your AI agent a small set of Markdown files that act as persistent working memory, organized around a 4-tier memory model:
+LIMO gives your AI agent a small set of Markdown files that act as persistent working memory, organized around a 4-tier memory model that:
+
+- Preserve decisions and rationale
+- Enforce invariants
+- Gate repeated mistakes
+- Track evolving learnings
+- Enable deterministic session restore
+- Allow multiple AI tools to resume from the same architectural state
+
+The result:
+
+Not just persistent memory —
+but shared reasoning continuity across agents and tools.
+
+LIMO does not route tasks or execute agents — it provides the durable state layer that makes orchestration possible.
 
 | Tier | What | Where |
 |:-----|:-----|:------|
@@ -49,6 +67,7 @@ Drop these files into your project folder. Tell your AI agent to read them first
 
 - **Anyone using AI agents for work that spans multiple sessions** — coding, research, analysis, writing, operations, finance, legal, data science
 - **People who switch between tools** (Claude today, Codex tomorrow, Cursor next week) and need continuity
+- **Builders orchestrating multiple AI agents — where one model writes, another critiques, another optimizes, and all of them inherit the same decision history, invariants, and mistakes log
 - **Anyone tired of re-explaining context** every time a session crashes or resets
 
 ## What's in the Repo
