@@ -134,7 +134,7 @@ LIMO is a **discipline layer** — a small structure that makes AI work durable 
 
 ## Provenance
 
-LIMO v2.1 was developed iteratively across real domains — Photography/Hobbies, LIFE management, Legal, and Finance — each adding patterns that proved their worth through actual multi-session work. The framework was then generalized by removing domain-specific patterns from the core and preserving them as optional advanced patterns.
+LIMO v2.1 was developed iteratively across real domains — Photography/Hobbies, LIFE management, Legal, Code Development and Finance — each adding patterns that proved their worth through actual multi-session work. The framework was then generalized by removing domain-specific patterns from the core and preserving them as optional advanced patterns.
 
 ## Getting Started
 
