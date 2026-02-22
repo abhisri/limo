@@ -124,6 +124,71 @@ If your tool can only read: you update the files manually based on the agent's o
 
 ---
 
+## Progressive Discovery — Expanding LIMO Capabilities
+
+LIMO has three tiers. Users start with Tier 1 (just the core files). Tiers 2 and 3 are optional expansions that the AI session should **offer when the need becomes apparent** — not dump on the user upfront.
+
+Think of it like setting up a smart home: you start with the speaker, and the app offers to connect a doorbell when it notices you have one. LIMO works the same way. The AI detects signals that the user would benefit from an expansion, and offers it.
+
+### Tier 2: Multi-Domain Ecosystem
+
+**What it adds:** Shared identity files at a common root, a `_messages/` bus for inter-agent communication, domain boundary rules, and cross-domain awareness.
+
+**When to offer it — trigger signals:**
+
+- The user mentions a second domain: *"I also have a Finance project"* or *"I use LIMO for my legal case too"*
+- The user asks about sharing context across domains: *"Can my Legal session know about the financial stuff?"*
+- The user manually relays information between domains: *"In my other session, we decided X — can you note that here?"*
+- You notice cross-domain items accumulating in OPEN_ITEMS.md
+- The user has multiple LIMO domain folders visible in the workspace
+
+**How to offer it:**
+
+> "I notice you're running LIMO in multiple domains. Right now they're independent — each session starts cold without knowing what the others have done. LIMO has a multi-domain setup where your domains share identity and can message each other directly. Want me to set that up? I'd create a shared root folder with your profile and a message bus. Takes about 5 minutes."
+
+**What to do:** Read `MULTI_DOMAIN_GUIDE.md` and follow the steps. The guide walks through creating the shared root, moving identity files, setting up `_messages/`, and updating each domain's boundary rules.
+
+### Tier 3: Infrastructure Backend
+
+**What it adds:** Optional server-side services — semantic memory (mem0), knowledge graph (Neo4j), workflow automation (n8n), and real-time task dispatch (Agent Bus).
+
+**When to offer specific components:**
+
+| Signal | Component to offer |
+|:-------|:-------------------|
+| User asks "what did we figure out about X months ago?" and grep isn't enough | **mem0** — semantic memory search |
+| User tracks many people with complex relationships across domains | **Neo4j** — knowledge graph |
+| User wants scheduled tasks, automated workflows, or webhook triggers | **n8n** — workflow automation |
+| User wants real-time cross-agent task dispatch with state tracking | **Agent Bus** (requires n8n) |
+| User says "I wish the AI could remember everything" or "searching old sessions is painful" | **mem0** as a starting point |
+| User has 5+ domains with heavy cross-domain traffic | **Full stack** |
+
+**How to offer it:**
+
+> "You keep needing to search across months of session history, and grepping the diary isn't cutting it. LIMO can optionally connect to a semantic memory service called mem0 — it lets you search your accumulated knowledge by meaning, not just keywords. It runs on a small server ($10-15/month). I can walk you through setting one up if you're interested — I'd help you pick a cloud provider, provision a server, and set everything up via SSH. You don't need to know how servers work; I'll guide you through it."
+
+Only offer one component at a time. Start with the one that solves the user's most visible pain. Don't suggest the full stack unless they're clearly ready for it.
+
+**What to do:** Read `INFRASTRUCTURE_GUIDE.md` for the conceptual overview and the `infra/` directory for starter configs. If the user says yes:
+
+1. Help them choose a cloud provider (suggest beginner-friendly options like DigitalOcean or Hetzner)
+2. Walk them through creating an account and provisioning a server (the user does the clicking — you tell them what to click)
+3. Have them give you SSH access (IP address, username, private key path)
+4. SSH into the server and set up the stack using the configs in `infra/`
+5. Verify services are running
+6. Configure the LIMO domain to connect to the new services
+
+Read `infra/setup.md` for the full server setup procedure.
+
+### What NOT to do
+
+- **Don't mention tiers unprompted.** The user doesn't need to know LIMO has tiers. They need to know their AI can do more when they're ready.
+- **Don't explain the architecture.** Say what it does for them, not how it works internally.
+- **Don't offer Tier 3 before Tier 2 is running.** Multi-domain should be working before adding infrastructure. Exception: a single-domain user with a clear mem0 use case.
+- **Don't push.** If the user says "maybe later" or "I'm fine with files," respect that. The files-only version is complete and works great.
+
+---
+
 ## Tips
 
 - **Don't over-update.** Only update files at milestones (decision made, task done, blocker hit), not after every small step.
