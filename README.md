@@ -72,6 +72,12 @@ Drop these files into your project folder. Tell your AI agent to read them first
 
 ## What's in the Repo
 
+LIMO has three tiers. Start with Tier 1 — it's complete on its own. Add Tier 2 or 3 only when you feel the need.
+
+### Tier 1: Core Framework (start here)
+
+Everything you need for persistent AI memory. Pure Markdown, zero infrastructure.
+
 ```
 LIMO_FRAMEWORK.md     → The complete spec — architecture, memory model, file specs, rules
 file_templates.md     → Copy-paste templates for every core file
@@ -87,6 +93,30 @@ INSTRUCTIONS.md       → Tool-specific setup for Claude, Codex, ChatGPT, Cursor
 **`SKILL.md`** — A step-by-step scaffolding workflow: interview the user, create the file tree, populate files with real content, verify nothing is empty. Written as a Claude skill but the phased approach (interview → scaffold → populate → verify) works with any AI agent.
 
 **`advanced_patterns.md`** — Patterns from complex, high-stakes domains (Finance, Legal). Session handover templates, cross-domain boot prompts, extended brain transfer formats. Most domains won't need these.
+
+### Tier 2: Multi-Domain Ecosystem (optional)
+
+When you're running multiple domains and want them to share identity and communicate.
+
+```
+MULTI_DOMAIN_GUIDE.md → Step-by-step guide to shared root, messaging bus, domain boundaries
+```
+
+Still pure Markdown, zero infrastructure. Adds a shared root folder with `USER_PROFILE.md`, `CLAUDE_BOOT_PROMPT.md`, `CLAUDE_BRAIN_TRANSFER.md`, and a `_messages/` bus for inter-agent communication. Your AI agent reads the guide and sets it up.
+
+### Tier 3: Infrastructure Backend (optional)
+
+When files alone aren't enough — you want semantic search, a knowledge graph, or workflow automation.
+
+```
+INFRASTRUCTURE_GUIDE.md → What each component does, when you need it, how to get started
+infra/
+  docker-compose.yml    → Starter Docker stack (mem0, Neo4j, n8n, Postgres)
+  agent-bus-schema.sql  → Postgres schema for the Agent Bus task dispatch system
+  setup.md              → Step-by-step server setup instructions for AI sessions
+```
+
+Adds optional backend services: **mem0** (semantic memory search), **Neo4j** (knowledge graph for people and relationships), **n8n** (workflow automation), and **Agent Bus** (real-time cross-agent task dispatch). Works with Tier 1 (single domain) or Tier 2 (multi-domain). Your AI agent can guide you through provisioning a server and setting everything up via SSH.
 
 ## How It Works
 
@@ -134,7 +164,7 @@ LIMO is a **discipline layer** — a small structure that makes AI work durable 
 
 ## Provenance
 
-LIMO v2.1 was developed iteratively across real domains — Photography/Hobbies, LIFE management, Legal, Code Development and Finance — each adding patterns that proved their worth through actual multi-session work. The framework was then generalized by removing domain-specific patterns from the core and preserving them as optional advanced patterns.
+LIMO v2.2 was developed iteratively across real domains — Photography/Hobbies, LIFE management, Legal, Code Development and Finance — each adding patterns that proved their worth through actual multi-session work. The framework was then generalized by removing domain-specific patterns from the core and preserving them as optional advanced patterns. The 3-tier structure (core → multi-domain → infrastructure) emerged from running 10+ domains with mem0, Neo4j, and n8n backing the file-based system.
 
 ## Getting Started
 
