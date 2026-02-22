@@ -1,72 +1,74 @@
-# LIMO Infrastructure Stack — Docker Compose Template
+# LIMO Infrastructure Stack — Docker Compose Starter
 #
-# This is a starter template. Customize before deploying:
-# 1. Change all passwords (POSTGRES_PASSWORD, NEO4J_AUTH, etc.)
-# 2. Set your OpenAI API key for mem0 embeddings
-# 3. Adjust resource limits for your server size
+# Based on a production setup running 6 containers on a t3.medium (2 vCPU, 4GB).
+#
+# Before deploying:
+# 1. Copy .env.example to .env and fill in all values
+# 2. Decide which services you need (you can comment out what you don't)
+# 3. Review the security notes below
+#
+# SECURITY: All services bind to 127.0.0.1 (localhost only). They are NOT
+# exposed to the internet directly. Use a reverse proxy (Caddy, nginx, Apache)
+# to expose only the endpoints you need with TLS. See setup.md for details.
 #
 # Usage:
-#   docker compose up -d              # Start all services
-#   docker compose up -d postgres     # Start just Postgres
-#   docker compose up -d mem0         # Start mem0 + its dependencies
-#   docker compose logs -f mem0       # Follow mem0 logs
-#   docker compose down               # Stop all services
+#   docker compose up -d                # Start all services
+#   docker compose up -d postgres       # Start just Postgres
+#   docker compose up -d postgres mem0  # Start mem0 + Postgres
+#   docker compose logs -f mem0         # Follow mem0 logs
+#   docker compose ps                   # Check health
+#   docker compose down                 # Stop all services
 
 services:
 
   # ── Postgres + pgvector ──────────────────────────────────────────
-  # Shared database for mem0 vectors, Agent Bus state, and n8n data.
+  # Shared database for: mem0 vectors, Agent Bus state, n8n internal data.
+  # Uses pgvector extension for embedding storage and HNSW cosine search.
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg17
     container_name: limo-postgres
     restart: unless-stopped
+    env_file: .env
     environment:
-      POSTGRES_USER: limo
-      POSTGRES_PASSWORD: CHANGE_ME_postgres_password
-      POSTGRES_DB: limo
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./agent-bus-schema.sql:/docker-entrypoint-initdb.d/agent-bus-schema.sql
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U limo"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── mem0 API Server ──────────────────────────────────────────────
-  # Semantic memory with vector search.
-  # API: POST /memories (store), POST /search (query), GET /memories (list)
-  mem0:
-    image: mem0ai/mem0:latest
-    container_name: limo-mem0
+  # ── Redis ────────────────────────────────────────────────────────
+  # Required by n8n for internal caching and job queueing.
+  # Also available for custom use (session caching, rate limiting, etc.).
+  redis:
+    image: redis:8-alpine
+    container_name: limo-redis
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      # mem0 configuration — adjust to your needs
-      MEM0_VECTOR_STORE: pgvector
-      MEM0_PGVECTOR_HOST: postgres
-      MEM0_PGVECTOR_PORT: 5432
-      MEM0_PGVECTOR_USER: limo
-      MEM0_PGVECTOR_PASSWORD: CHANGE_ME_postgres_password
-      MEM0_PGVECTOR_DB: limo
-      MEM0_EMBEDDING_MODEL: text-embedding-3-small
-      OPENAI_API_KEY: CHANGE_ME_your_openai_api_key
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    env_file: .env
+    volumes:
+      - redis_data:/data
     ports:
-      - "8080:8080"
+      - "127.0.0.1:6379:6379"
 
   # ── Neo4j ────────────────────────────────────────────────────────
   # Knowledge graph for people, relationships, facts.
-  # Browser UI at :7474, Bolt protocol at :7687.
+  # Also used by mem0 for automatic entity/relationship extraction.
+  # Browser UI at :7474 (localhost only), Bolt protocol at :7687.
   neo4j:
     image: neo4j:5-community
     container_name: limo-neo4j
     restart: unless-stopped
+    env_file: .env
     environment:
-      NEO4J_AUTH: neo4j/CHANGE_ME_neo4j_password
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_server_memory_heap_max__size: 512m
       NEO4J_server_memory_pagecache_size: 256m
@@ -74,12 +76,44 @@ services:
       - neo4j_data:/data
       - neo4j_logs:/logs
     ports:
-      - "7474:7474"   # Browser UI
-      - "7687:7687"   # Bolt protocol
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+
+  # ── mem0 API ─────────────────────────────────────────────────────
+  # Semantic memory: store text, search by meaning (vector similarity).
+  # Optional: can also extract entities/relationships into Neo4j.
+  #
+  # NOTE: The mem0 ecosystem is evolving. Depending on when you deploy:
+  #   Option A: Use the official mem0 Docker image (mem0ai/mem0:latest)
+  #   Option B: Write a small FastAPI wrapper around the mem0 Python library
+  #             (more control, proven in production — see setup.md)
+  #
+  # The config below uses Option A. If it doesn't work with the latest
+  # mem0 release, your AI session can help you build Option B.
+  mem0:
+    image: mem0ai/mem0:latest
+    container_name: limo-mem0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "127.0.0.1:8080:8080"
 
   # ── n8n ──────────────────────────────────────────────────────────
   # Workflow automation. Agent Bus runs as an n8n workflow.
-  # UI at :5678. Webhooks at :5678/webhook/*.
+  # UI at :5678 (localhost only). Webhooks at :5678/webhook/*.
+  #
+  # TIP: If you need curl/jq inside the n8n container (for HTTP nodes
+  # that shell out), create a Dockerfile that extends the base image:
+  #   FROM n8nio/n8n:latest
+  #   USER root
+  #   RUN apk add --no-cache curl jq
+  #   USER node
+  # Then change the image line below to: build: .
   n8n:
     image: n8nio/n8n:latest
     container_name: limo-n8n
@@ -87,24 +121,30 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+    env_file: .env
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: limo
-      DB_POSTGRESDB_USER: limo
-      DB_POSTGRESDB_PASSWORD: CHANGE_ME_postgres_password
-      N8N_BASIC_AUTH_ACTIVE: "true"
-      N8N_BASIC_AUTH_USER: admin
-      N8N_BASIC_AUTH_PASSWORD: CHANGE_ME_n8n_password
-      WEBHOOK_URL: https://your-server-domain:5678/
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      EXECUTIONS_MODE: queue
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      WEBHOOK_URL: ${WEBHOOK_URL}
     volumes:
       - n8n_data:/home/node/.n8n
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
 
 volumes:
   postgres_data:
   neo4j_data:
   neo4j_logs:
+  redis_data:
   n8n_data:
