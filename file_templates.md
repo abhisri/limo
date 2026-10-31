@@ -11,6 +11,7 @@ modified: YYYY-MM-DD
 **v2.5 line tags** (collection files: DECISIONS, LEARNINGS, NEVER_AGAIN, INVARIANTS, CHECKPOINTS): `{valid: 2026-03-19..}`
 `{valid: 2026-03-19..2026-06-01}` `{supersedes: D-X-003}` `{class: fact|opinion|preference|episode|rule}` `{confidence: 0.7}`.
 Never delete a superseded entry — close its range and point the successor at it. See LIMO_FRAMEWORK.md → Memory Line Conventions.
+**v2.5.1 attribution** on every new entry, diary line and checkpoint: `{agent: tool/model} {source: session:<id>}` (+ `{confidence: …}` where it matters) — the Events API's own field names.
 
 ---
 
@@ -662,13 +663,13 @@ what you mean.]
 
 **Examples:**
 
-Filename: `2026-02-20_from-Research_to-ASENT_oracle-separation-validates-embodiment47.md`
+Filename: `2026-02-20_from-Research_to-Engineering_oracle-separation-validates-design-review.md`
 - Context: "While testing Research's oracle separation architecture, discovered that the strict
-  separation between discoverer and oracle directly validates ASENT Embodiment 47's claim
+  separation between discoverer and oracle provides evidence relevant to Engineering design requirement's claim
   about symbolic reasoning requiring isolated evaluation contexts."
 - Priority: important
-- Suggested Action: "Add as supporting evidence to the non-provisional filing. Reference
-  Research test results as empirical proof."
+- Suggested Action: "Add as supporting evidence to the design review. Reference
+  Research test results as test evidence."
 
 Filename: `2026-02-21_from-LIMO_to-ALL_compression-protocol-update.md`
 - Context: "Updated the memory compression protocol based on real-world usage across 5 domains."

@@ -12,6 +12,7 @@ limo_lint.py — LIMO v2.5 tooling. Standard library only. Python 3.8+.
   python3 tools/limo_lint.py commit    Domain --agent NAME --trigger "what fired"   git-commit core/ only, with stale-lock recovery
   python3 tools/limo_lint.py git-init  Domain                    create {Domain}/limo-populated/ repo if the core is not inside one
   python3 tools/limo_lint.py infra     [--probe]                 [Infra] tier: diary migration state, doc drift vs SERVICE_CATALOG, optional reachability
+  python3 tools/limo_lint.py who       [Domain ...] [--since N]  attribution: entries, checkpoints, diary lines and commits per agent (tool/model)
   python3 tools/limo_lint.py all       [Domain ...]              lint + bootpack + trigger index + deadends + agentsmd
 
 Run from the workspace root (the folder that contains */limo-populated/core/), or pass --root.
@@ -56,7 +57,7 @@ LAST_UPDATED_RE = re.compile(r"last\s+updated[^0-9\n]{0,12}(\d{4}-\d{2}-\d{2})",
 MODIFIED_RE = re.compile(r"(?im)^modified:\s*(\d{4}-\d{2}-\d{2})")
 DESCRIPTION_RE = re.compile(r"(?im)^description:\s*(.+)$")
 NUMBER_RE = re.compile(
-    r"($\s?[\d,]+(?:\.\d+)?(?:\s?(?:lakh|lakhs|crore|cr|k|L))?"
+    r"([₹$]\s?[\d,]+(?:\.\d+)?(?:\s?(?:lakh|lakhs|crore|cr|k|L))?"
     r"|\$\s?[\d,]+(?:\.\d+)?"
     r"|\b\d+(?:\.\d+)?\s?(?:%|U/L|mg/dL|mg/dl|mmol/L|kg|lbs?|sqft|sq\.? ?ft|km|cm|mm|GB|TB|MB)\b"
     r"|\b\d{1,3}(?:,\d{2,3}){1,}\b)"
@@ -64,11 +65,12 @@ NUMBER_RE = re.compile(
 SRC_RE = re.compile(r"\[src:\s*[^\]]+\]")
 REF_RE = re.compile(r"`([A-Za-z0-9_./\[\]\- ]+\.md)`")
 TAIL_RE = re.compile(r"<!--\s*checkpoint-tail:\s*(.*?)\s*-->", re.S)
-TAG_RE = re.compile(r"\{(valid|supersedes|class|confidence|triggers|blocked_by|claimed|started|observed_by):\s*([^}]*)\}")
+TAG_RE = re.compile(r"\{(valid|supersedes|class|confidence|triggers|blocked_by|claimed|started|observed_by|agent|source):\s*([^}]*)\}")
+CONFIDENCE = {"source_quoted", "human_verified", "llm_inferred", "session_extracted"}  # same vocabulary as the Events API
 TRIGGERS_FIELD_RE = re.compile(r"(?im)^[-*\s]*\*{0,2}Triggers:\*{0,2}\s*(.+)$")
 ENTRY_RE = re.compile(r"(?m)^(#{2,4})\s*\**((?:D|NA|INV|L|CP|OI)-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\**\s*[—:–-]\s*(.*)$")
 ID_RE = re.compile(r"\b(?:D|NA|INV|L|CP|OI)-(?=[A-Z0-9-]*\d)[A-Z0-9]+(?:-[A-Z0-9]+){0,3}\b")
-DEF_RE = re.compile(r"(?m)^\s*(?:[-*]\s*|\|\s*|#{1,4}\s*)~{0,2}\**((?:D|NA|INV|L|CP|OI)-(?=[A-Z0-9-]*\d)[A-Z0-9]+(?:-[A-Z0-9]+){0,3})\b")
+DEF_RE = re.compile(r"(?m)^\s*(?:[-*]\s*|\|\s*|#{1,4}\s*|\d+\.\s*)~{0,2}`?\**((?:D|NA|INV|L|CP|OI)-(?=[A-Z0-9-]*\d)[A-Z0-9]+(?:-[A-Z0-9]+){0,3})\b")  # list, table, heading or numbered rows; optional ~~, ` and ** around the ID
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -177,7 +179,7 @@ def oi_rows(oi_text):
             in_active = "active" in line.lower()
         if not in_active:
             continue
-        m = re.match(r"^\s*(?:[-*]\s*|\|\s*)(~~)?\**(OI-[A-Za-z0-9-]+)", line)
+        m = re.match(r"^\s*(?:[-*]\s*|\|\s*|\d+\.\s*)(~~)?`?\**(OI-[A-Za-z0-9-]+)", line)
         if not m:
             continue
         cols = [c.strip() for c in line.strip().strip("|").split("|")]
@@ -325,6 +327,19 @@ def lint_domain(root, domain, core):
         for eid, es in open_by_id.items():
             if len(es) > 1:
                 F.append(Finding(domain, "WARN", "line-tag", f, f"{eid} defined {len(es)} times with no closed {{valid:}} range — close the superseded one"))
+
+    # 8b. attribution (v2.5.1): entries without {agent:}; confidence outside the Events API vocabulary
+    total, unattributed = 0, 0
+    for f in COLLECTION_FILES:
+        for e in entries(texts.get(f, "")):
+            total += 1
+            t = parse_tags(e["body"][:600] + " " + e["title"])
+            if not t.get("agent") and not re.search(r"(?m)^\s*-\s*\*{0,2}Agent:", e["body"][:600]):
+                unattributed += 1
+            if t.get("confidence") and t["confidence"] not in CONFIDENCE and not re.fullmatch(r"0?\.\d+|1(\.0)?", t["confidence"]):
+                F.append(Finding(domain, "WARN", "attribution", f, f"{e['id']} confidence `{t['confidence']}` — use {sorted(CONFIDENCE)} or a 0–1 number"))
+    if total and unattributed:
+        F.append(Finding(domain, "INFO", "attribution", "core/", f"{unattributed}/{total} collection entries carry no {{agent:}} — `limo_lint.py who {domain}`"))
 
     # 9. cross-artifact (M8): every ID mentioned must exist; GOALS [NEXT] must appear in STATUS next-3 or active OI; ARCHITECTURE paths exist
     mentioned = set()
@@ -585,7 +600,8 @@ def tree(path, depth=2):
 
 def build_part_a(root, name, core, texts):
     A = [f"# BOOT PACK — {name}",
-         f"Generated {TODAY}. Summaries of summaries: every line is a pointer. Open the source before quoting a figure. Run `limo_lint.py triggers \"<request>\" {name}` before acting."]
+         f"Generated {TODAY}. Summaries of summaries: every line is a pointer. Open the source before quoting a figure. Run `limo_lint.py triggers \"<request>\" {name}` before acting.",
+         "Sign what you write: `{agent: tool/model} {source: session:<id>}` on every new entry and diary line; `LIMO_AGENT=tool/model` for commits."]
     st = settled_tables(root, name)
     A.append("\n## SETTLED — DO NOT RE-LITIGATE")
     A += st[:3] if st else ["_(none)_"]
@@ -657,7 +673,8 @@ def cmd_agentsmd(root, only):
              "## Boot", f"1. Read `core/BOOT_PACK.md` (this file's Part A is a copy), then `core/{name.upper().replace(' ', '_')}_SESSION_PROMPT.md` if present, then `core/OWNERS.md`.",
              "2. `ls -R ../Documents/` and grep before claiming anything is absent.",
              f"3. Before acting on a request: `python3 tools/limo_lint.py triggers \"<request>\" \"{name}\"` from the workspace root.",
-             "4. First line of your first reply: `[LIMO: " + name + " booted from BOOT_PACK <date>]`.", "",
+             "4. First line of your first reply: `[LIMO: " + name + " booted from BOOT_PACK <date>]`.",
+             "5. Identify yourself on every entry you write: append `{agent: <tool>/<model>} {source: session:<id>}` (e.g. `{agent: codex/gpt-5.4} {source: session:7f3a}`), and export `LIMO_AGENT=<tool>/<model>` so `commit` signs the same way. Vocabulary is the Events API's: agent, source, confidence.", "",
              "## Fences", "- Files marked `propose` in OWNERS.md are written only via your own diary / `core/_pending/`; the owner promotes.",
              "- The human drives git for code. Memory commits go through `limo_lint.py commit` only, and only touch `core/`.",
              "- Never delete a superseded line — close its `{valid: ..date}` and point the new one with `{supersedes:}`.",
@@ -879,6 +896,133 @@ def cmd_git_init(root, domain):
     return 0
 
 
+# ----------------------------------------------------------------------------- trajectory (replay / branch view)
+TRAJ_CYPHER = """
+MATCH (e:Event) WHERE $tag IN coalesce(e.tags, [])
+OPTIONAL MATCH (e)-[:NEXT]->(n:Event)
+OPTIONAL MATCH (e)-[:CAUSED]->(c:Event)
+OPTIONAL MATCH (b:Event)-[:CAUSED]->(e) WHERE any(t IN coalesce(b.tags, []) WHERE t STARTS WITH 'branch')
+RETURN e.event_id AS id, e.timestamp AS ts, e.type AS type, e.title AS title, e.summary AS summary, e.outcome AS outcome,
+       e.agent AS agent, e.source AS source, e.tags AS tags,
+       collect(DISTINCT n.event_id) AS next, collect(DISTINCT c.event_id) AS caused,
+       collect(DISTINCT {id: b.event_id, title: b.title, tags: b.tags, summary: b.summary}) AS branches
+ORDER BY e.timestamp
+"""
+
+
+def render_trajectory(task, rows):
+    ids = {r["id"] for r in rows}
+    L = [f"# Trajectory — task:{task} — {len(rows)} event(s) — rendered {TODAY}", "",
+         "Read top to bottom. `→` = NEXT, `⇒` = CAUSED, `⑂` = a branch that forked from this step (its own task id is in its tags).", ""]
+    for i, r in enumerate(rows, 1):
+        step = next((t.split(":", 1)[1] for t in (r.get("tags") or []) if t.startswith("step:")), str(i))
+        flag = {"blocked": " ⛔", "deferred": " ⏸", "corrected": " ✎", "discovered": " ✱"}.get(r.get("outcome") or "", "")
+        L.append(f"## {step}. {r.get('title') or r['id']}{flag}")
+        L.append(f"`{r['id']}` · {str(r.get('ts') or '')[:16]} · {r.get('type') or ''} · agent={r.get('agent') or '?'} · source={r.get('source') or '?'}")
+        if r.get("summary"):
+            L.append(r["summary"])
+        links = [f"→ {n}" for n in r.get("next") or [] if n] + [f"⇒ {c}" for c in r.get("caused") or [] if c]
+        if links:
+            L.append("  " + "  ".join(("**" + x + "**") if x[2:] in ids else x for x in links))
+        for b in r.get("branches") or []:
+            if b and b.get("id"):
+                bt = next((t for t in (b.get("tags") or []) if t.startswith("task:")), "task:?")
+                mod = next((t.split("=", 1)[1] for t in (b.get("tags") or []) if t.startswith("branch:mod=")), "")
+                L.append(f"  ⑂ **{bt}** forked here — `{b['id']}` {b.get('title') or ''}" + (f" — modification: {mod}" if mod else "") + (f"\n    {b['summary']}" if b.get("summary") else ""))
+        L.append("")
+    if not rows:
+        L.append("_(no events carry this task tag — log events with `tags: [\"task:<id>\", \"step:<n>\"]` and chain them with `next_after`)_")
+    return "\n".join(L)
+
+
+def cmd_trajectory(root, task, json_file=None, out=None):
+    """Render the ordered event chain for one task, with branches, from the Events API (or an exported JSON rows file)."""
+    rows = []
+    if json_file:
+        import json
+        try:
+            rows = json.load(open(json_file, encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            sys.exit(f"cannot read {json_file}: {e}")
+        rows = rows.get("rows", rows) if isinstance(rows, dict) else rows
+    else:
+        import json
+        import urllib.request
+        api = os.environ.get("LIMO_EVENT_API", "https://YOUR-HOST/webhook/event/query")
+        tok = os.environ.get("LIMO_EVENT_TOKEN")
+        if not tok:
+            sys.exit("set LIMO_EVENT_TOKEN (the X-Event-Token from infra/EC2_DETAILS.md) — or pass --json <exported rows> to render offline")
+        body = json.dumps({"cypher": TRAJ_CYPHER, "params": {"tag": f"task:{task}"}}).encode()
+        req = urllib.request.Request(api, data=body, headers={"Content-Type": "application/json", "X-Event-Token": tok}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                data = json.loads(r.read().decode())
+        except Exception as e:  # noqa
+            sys.exit(f"Events API unreachable from this machine: {type(e).__name__}: {str(e)[:100]} — run from the Mac, or export rows and use --json")
+        rows = data.get("rows") or data.get("results") or data if isinstance(data, list) else data.get("rows", [])
+    text = render_trajectory(task, rows)
+    if out:
+        write(out, text)
+        print(f"wrote {out}")
+    else:
+        print(text)
+    return 0
+
+
+# ----------------------------------------------------------------------------- who (attribution)
+def cmd_who(root, only, since_days=None):
+    """Who wrote what: collection entries by {agent:} / Agent: / Origin:, diary lines by {agent:}, checkpoints by Agent:, git commits by author."""
+    cutoff = TODAY - dt.timedelta(days=since_days) if since_days else None
+    for name, core in domains(root, only):
+        texts = {f: read(os.path.join(core, f)) or "" for f in os.listdir(core) if f.endswith(".md")}
+        tally = {}
+        def bump(agent, kind):
+            a = (agent or "(unattributed)").strip()
+            tally.setdefault(a, {}).setdefault(kind, 0)
+            tally[a][kind] += 1
+        for f in COLLECTION_FILES:
+            for e in entries(texts.get(f, "")):
+                t = parse_tags(e["body"][:600] + " " + e["title"])
+                m = re.search(r"(?m)^\s*-\s*\*{0,2}Agent:\*{0,2}\s*([^\n]+)", e["body"][:600])  # Origin: is a source, not an agent
+                agent = t.get("agent") or (m.group(1).strip()[:40] if m else None)
+                d = parse_valid(t.get("valid", ""))[0]
+                if cutoff and d and d < cutoff:
+                    continue
+                bump(agent, f.replace(".md", ""))
+        for e in re.split(r"\n(?=### CP-)", texts.get("CHECKPOINTS.md", "")):
+            if e.startswith("### CP-"):
+                m = re.search(r"\*\*Agent:\*\*\s*([^\n]+)", e)
+                dm = re.search(r"\*\*Date:\*\*\s*(\d{4}-\d{2}-\d{2})", e)
+                if cutoff and dm and dt.date.fromisoformat(dm.group(1)) < cutoff:
+                    continue
+                bump(m.group(1).strip() if m else None, "CHECKPOINTS")
+        for line in texts.get("SESSION_DIARY.md", "").split("\n"):
+            if line.startswith(("- ", "**", "### ")) and "{agent:" in line:
+                bump(parse_tags(line).get("agent"), "SESSION_DIARY")
+        commits = {}
+        wt, gd, status = memory_repo_for(root, name)
+        if wt:
+            args = ["log", "--format=%an\t%ad", "--date=short"]
+            if since_days:
+                args.append(f"--since={since_days} days ago")
+            p = git(wt, gd, *args, "--", os.path.relpath(core, wt), agent="who")
+            for ln in p.stdout.splitlines():
+                an = ln.split("\t")[0]
+                an = re.sub(r"^LIMO \((.+)\)$", r"\1", an)
+                commits[an] = commits.get(an, 0) + 1
+        print(f"# who — {name} — {TODAY}" + (f" — last {since_days}d" if since_days else "") + "\n")
+        kinds = sorted({k for v in tally.values() for k in v})
+        print("| Agent | " + " | ".join(kinds) + " | git commits |")
+        print("|:--|" + "--:|" * (len(kinds) + 1))
+        for a in sorted(set(tally) | set(commits), key=lambda x: (x == "(unattributed)", x.lower())):
+            row = tally.get(a, {})
+            print(f"| {a} | " + " | ".join(str(row.get(k, 0)) for k in kinds) + f" | {commits.get(a, 0)} |")
+        if not tally and not commits:
+            print("| — | (nothing attributed, no memory repo) |")
+        print("\nAttribution tag (same vocabulary as the Events API): `{agent: tool/model} {source: session:<id>} {confidence: source_quoted|human_verified|llm_inferred|session_extracted}`. Set `LIMO_AGENT=tool/model` so `commit` and `ready` use the same string.\n")
+    return 0
+
+
 # ----------------------------------------------------------------------------- infra
 def cmd_infra(root, probe=False):
     """Documentation-vs-reality checks for the [Infra] tier. Never prints keys."""
@@ -937,13 +1081,16 @@ def cmd_infra(root, probe=False):
 # ----------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["lint", "bootpack", "triggers", "ready", "reflect", "deadends", "agentsmd", "commit", "git-init", "infra", "all"])
+    ap.add_argument("command", choices=["lint", "bootpack", "triggers", "ready", "reflect", "deadends", "agentsmd", "commit", "git-init", "infra", "who", "trajectory", "all"])
     ap.add_argument("args", nargs="*", help="domain names, or for `triggers`: \"<request text>\" Domain")
     ap.add_argument("--root", default=os.getcwd())
     ap.add_argument("--full", action="store_true", help="lint: list every overdue item and stale file")
-    ap.add_argument("--agent", default=os.environ.get("LIMO_AGENT", "cowork"), help="agent name for ready/commit")
+    ap.add_argument("--agent", default=os.environ.get("LIMO_AGENT", "cowork"), help="agent for ready/commit/claims — use tool/model, e.g. codex/gpt-5.4, claude-code/opus-4.6 (env LIMO_AGENT)")
     ap.add_argument("--trigger", default="", help="commit: which write-back trigger fired")
     ap.add_argument("--probe", action="store_true", help="infra: probe endpoint reachability")
+    ap.add_argument("--since", type=int, default=None, help="who: only the last N days")
+    ap.add_argument("--json", default=None, help="trajectory: render from an exported rows JSON file instead of calling the Events API")
+    ap.add_argument("--out", default=None, help="trajectory: write the rendered markdown here")
     a = ap.parse_args()
     root = os.path.abspath(a.root)
     if not domains(root):
@@ -971,6 +1118,12 @@ def main():
         sys.exit(cmd_git_init(root, a.args[0]))
     if c == "infra":
         sys.exit(cmd_infra(root, a.probe))
+    if c == "who":
+        sys.exit(cmd_who(root, set(a.args) or None, a.since))
+    if c == "trajectory":
+        if not a.args:
+            sys.exit("usage: trajectory <task_id> [--json rows.json] [--out file.md]")
+        sys.exit(cmd_trajectory(root, a.args[0], a.json, a.out))
     if c == "all":
         only = set(a.args) or None
         rc = cmd_lint(root, only, a.full)

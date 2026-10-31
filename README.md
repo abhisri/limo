@@ -1,6 +1,8 @@
 # LIMO — LLM Interaction Memory OS
 
-**Your AI agent forgets everything when the session ends. LIMO fixes that.**
+**Portable project memory for AI-assisted work across sessions and tools.**
+
+New here? Start with [START_HERE.md](START_HERE.md) for a small, practical trial. The current public release carries the v2.5.2 framework and tools.
 
 ---
 
@@ -62,7 +64,7 @@ The core files:
 | `TRIGGER_INDEX.md` | Generated (v2.5): keyword → gate map, so a NEVER_AGAIN fires when a request matches, not only at boot |
 | `CONTEXT_RESTORE_PROTOCOL.md` | Legacy since v2.4 — its rules now live in the framework's Layer 1 |
 
-Drop these files into your project folder. Tell your AI agent to read them first. When the session ends, the files stay. When a new session starts, the agent reads the files and picks up exactly where you left off.
+Drop these files into your project folder. Tell your AI agent to read them first. When the session ends, the files stay. When a new session starts, the agent reads the files and resumes from the recorded state.
 
 **No framework. No database. No vendor lock-in. Just Markdown files that any LLM can read.**
 
@@ -159,7 +161,7 @@ The agent interviews you about the domain, creates the file tree, and populates 
 
 ### 2. Work normally — the agent maintains the files
 
-`CONTEXT_RESTORE_PROTOCOL.md` tells the agent when to update which files. After each meaningful step (decision made, task completed, blocker hit), the agent updates the relevant files.
+The framework's Layer 1 and Write-Back Triggers sections tell the agent when to update which files. After each meaningful step (decision made, task completed, blocker hit), the agent updates the relevant files.
 
 ### 3. On new sessions, the agent reads and resumes
 

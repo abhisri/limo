@@ -18,7 +18,7 @@ The agent will interview you about the domain, create the file tree, and populat
 
 ### Step 2: Work normally — the agent maintains the files
 
-Once LIMO is set up, your domain will have ~11 Markdown files. The agent knows when to update which files (it's defined in `CONTEXT_RESTORE_PROTOCOL.md`). After each meaningful step — decision made, task completed, blocker hit — the agent updates the relevant files.
+Once LIMO is set up, your domain will have ~11 Markdown files. The agent knows when to update which files (defined in the framework's Layer 1 and Write-Back Triggers sections). After each meaningful step — decision made, task completed, blocker hit — the agent updates the relevant files.
 
 ### Step 3: On every new session
 
@@ -59,7 +59,7 @@ That's it. Below are tool-specific details.
 
 This project uses LIMO for persistent memory. At session start:
 1. Read AI_AGENTS_READ_THIS_FIRST.md
-2. Follow the startup checklist in CONTEXT_RESTORE_PROTOCOL.md
+2. Read BOOT_PACK.md if generated; follow the framework Layer 1 restore rules
 3. After each milestone, update STATUS_SNAPSHOT, OPEN_ITEMS, DECISIONS, and SESSION_DIARY
 
 Trust LIMO files over chat history for project state.

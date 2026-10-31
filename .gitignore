@@ -29,3 +29,11 @@ __pycache__/
 graphify-out/
 __pycache__/
 .DS_Store
+
+# Private source material is never part of the distribution
+MY_SETUP.md
+SERVICES_GUIDE.md
+HANDOFF_*.md
+PURGE_INSTRUCTIONS_*.txt
+audit.jsonl
+graphify-chapters/

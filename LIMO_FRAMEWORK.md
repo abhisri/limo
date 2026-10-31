@@ -1,8 +1,8 @@
 # LIMO — LLM Interaction Memory OS
 
-**Version:** 2.5 (Field adaptations — pull-based boot, trigger injection, line validity + supersession, reconcile/reflect, interruption hooks, ready/claim/stall, git write-ahead log, consistency lint)
+**Version:** 2.5.1 (Attribution tags aligned with the Events API — `{agent:} {source:} {confidence:}` — and `who`; 2.5: Field adaptations — pull-based boot, trigger injection, line validity + supersession, reconcile/reflect, interruption hooks, ready/claim/stall, git write-ahead log, consistency lint)
 **Author:** Abhishek Srivastava
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-16
 **Last verified against production:** 2026-09-15 (workspace `CLAUDE-PROJECTS/`, 14 domains; 9 memory repos initialised)
 **Freshness target (this spec):** 180 days — past that, re-verify every `Source:` reference below against the workspace before trusting it.
 
@@ -410,7 +410,11 @@ those four files. This does not guarantee the source is current; it guarantees t
 {confidence: 0.7}                opinions only; reinforce or downgrade when evidence arrives
 {triggers: keyword, *.glob}      NEVER_AGAIN / INVARIANTS only — see TRIGGER_INDEX
 {observed_by: codex}             KEY_PEOPLE only — whose picture of the person this is
+{agent: codex/gpt-5.4}           who wrote this entry — tool/model, same vocabulary as the Events API `agent` field (v2.5.1)
+{source: session:7f3a}           where it came from — session id, file path, or "verbal" (Events API `source`)
+{confidence: session_extracted}  Events API vocabulary: source_quoted | human_verified | llm_inferred | session_extracted (a 0–1 number is also accepted for opinions)
 ```
+**Attribution (v2.5.1).** The Events API already records `agent`, `source` and `confidence` on every event; the flat-file tier uses the *same three words* so a line can be turned into an event without translation. Convention: every new collection entry, diary line and checkpoint carries `{agent: tool/model} {source: session:<id>}`; agents export `LIMO_AGENT=tool/model` so `commit`, `ready` and claims sign with the same string; the Claude Code SessionStart hook prints the tag with the session id filled in. `limo_lint.py who [Domain] [--since N]` tallies entries, checkpoints, diary lines and git commits per agent; lint reports how many entries are still unattributed. Model granularity matters: your worker-class routing rule treats a reserve model differently from the advanced one, and a LEARNING written by one should say so.
 **Rules.** (1) Never delete a superseded entry: close its `valid` range and point the new one at it with `supersedes:`. (2) BOOT_PACK, DEAD_END_INDEX and `ready` show only open-range entries. (3) An `opinion` older than 90 days with no `confidence` is flagged; a `rule` or `fact` never decays by age. (4) Lint flags: two open-range entries with the same ID, a `supersedes:` target that does not exist, a class outside the set.
 
 **Reconcile on write.** Before appending to a collection file: search the file for the same subject; then **ADD** (new subject), **UPDATE** (close the old entry's range, write the new one with `supersedes:`), or **NOOP** (already captured — say so in the diary line instead). Never a third phrasing of the same learning.
@@ -725,14 +729,14 @@ When multiple LIMO domains exist, agents accumulate insights relevant to sibling
 #### The Problem
 
 Without messaging, cross-domain knowledge transfer looks like this:
-1. Research agent discovers oracle separation validates ASENT Embodiment 47
-2. Research agent writes a note in OPEN_ITEMS: "Cross-Domain → ASENT session: oracle separation validates Embodiment 47"
-3. User reads it, copy-pastes it into the ASENT session
-4. ASENT agent processes it
+1. Research agent discovers oracle separation validates Engineering design requirement
+2. Research agent writes a note in OPEN_ITEMS: "Cross-Domain → Engineering session: oracle separation validates design requirement"
+3. User reads it, copy-pastes it into the Engineering session
+4. Engineering agent processes it
 
 With messaging:
 1. Research agent drops a message in `_messages/`
-2. ASENT agent boots, checks inbox, processes it, optionally replies
+2. Engineering agent boots, checks inbox, processes it, optionally replies
 3. User approves important actions but doesn't relay data
 
 #### Architecture
@@ -740,8 +744,8 @@ With messaging:
 ```
 CLAUDE-PROJECTS/
 ├── _messages/                               ← Shared message bus (root level)
-│   ├── 2026-02-20_from-Research_to-ASENT_oracle-separation.md
-│   ├── 2026-02-20_from-ASENT_to-Research_embodiment47-cite.md
+│   ├── 2026-02-20_from-Research_to-Engineering_oracle-separation.md
+│   ├── 2026-02-20_from-Engineering_to-Research_design-review-cite.md
 │   ├── 2026-02-21_from-LIMO_to-ALL_compression-update.md
 │   └── _processed/                          ← Messages that have been read and acted on
 │       └── 2026-02-19_from-LIFE_to-Finance_insurance-update.md
@@ -764,7 +768,7 @@ Each message is a standalone markdown file. The filename encodes routing; the bo
 [DATE]_from-[SOURCE]_to-[TARGET]_[slug].md
 ```
 - DATE: `YYYY-MM-DD`
-- SOURCE: Domain name of the sender (e.g., `Research`, `ASENT`, `LIFE`, `Finance`)
+- SOURCE: Domain name of the sender (e.g., `Research`, `Engineering`, `LIFE`, `Finance`)
 - TARGET: Domain name of the recipient, or `ALL` for broadcast
 - slug: kebab-case summary (e.g., `oracle-separation`, `insurance-update`)
 
@@ -946,7 +950,7 @@ left unmarked gets quoted back months later as if current.
 ## SETTLED — DO NOT RE-LITIGATE
 | Question | Settled | Date | Where reasoning lives |
 |:---------|:--------|:-----|:----------------------|
-| Authorized capital | figure and split as decided | 2026-03-19 | DECISIONS D-VENTURE-004 |
+| Authorized capital | $10,00,000; 9,999 shares of $10 split 3,333 ×3 | 2026-03-19 | DECISIONS D-VENTURE-004 |
 ```
 
 BOOT_PACK.md hoists every SETTLED table in the domain to its first section.
@@ -994,7 +998,7 @@ refuses and prints what to do. `commit` also stages only `core/` and never touch
 
 **Which repository.** `limo_lint.py git-init <Domain>` decides: (a) `limo-populated/` already a repo → enable
 with the marker only if a human says so; (b) core/ inside an enclosing repo that *ignores* `limo-populated/`
-(the Venture pattern) → create a nested memory repo, safe; (c) core/ *tracked* by an enclosing repo (ASENT,
+(the Venture pattern) → create a nested memory repo, safe; (c) core/ *tracked* by an enclosing repo (Engineering,
 Legal, Finance, Research records) → refuse, because a nested repo would hide memory from that repository —
 the human adds the marker at that root if they want agent commits there; (d) no repo → create one.
 
@@ -1011,10 +1015,7 @@ once delete permission was granted — that incident is why the marker rule and 
 **Concurrency.** Two agents on one domain work in separate worktrees (`git worktree add`), each committing its own
 lane; conflicts surface as merge conflicts, not silent overwrites. Nothing is pushed anywhere unless a human does it.
 
-**State on 2026-09-15.** Memory repos initialised (marker present, agent commits enabled): 3d printing, Health,
-INVEST, LIFE, Photography, Contracts, n8n, Automation, Venture (nested; the Venture code repo ignores `limo-populated/`).
-Human-driven, no marker: ASENT, Legal, Finance (memory tracked in the domain repo), Research and Research-Experiment (records
-repo + worktree, "The human drives git").
+**Deployment example.** Enable agent commits only in memory repositories explicitly marked for that purpose. Keep repositories managed by a human unmarked; their owner commits changes.
 
 ---
 
@@ -1046,9 +1047,7 @@ write Neo4j; entity linking (spaCy) is a recall-ranking boost only. Any older no
 describes the 1.x setup and is stale. (2) mem0 2.x `search()` / `get_all()` take entity ids via `filters={…}`; the external REST contract
 (`/search`, `/memories`) was kept stable by a patch in `main.py`, so LIMO's SERVICES_GUIDE calls still work.
 
-**Graphiti (optional, `[Infra]`).** If bi-temporal facts on the existing Neo4j are wanted — `valid_from` / `valid_to` on graph edges with
-invalidate-not-delete, the engine half of the v2.5 line-tag convention — Graphiti (getzep) runs against Neo4j 5.26+ and is maintained.
-It is an addition beside the Events API, not a replacement for anything running.
+**Validity-aware memory (optional, `[Infra]`).** The maintained design adds a Beliefs layer alongside entities, events, and fuzzy recall: facts with validity intervals and explicit supersession. Graphiti is one possible backend. Keep domains scoped separately, preserve source and confidence, and close the validity of superseded facts instead of silently replacing history. Curated Markdown remains the reviewed write source; any synchronization adapter must preserve its provenance. The public starter does not bundle the author's deployment or a Graphiti synchronization service. Validate backend compatibility and retrieval before enabling it for your own workspace.
 
 | LIMO concept | `[Core]` implementation | `[Infra]` implementation |
 |:-------------|:------------------------|:-------------------------|
@@ -1060,7 +1059,7 @@ It is an addition beside the Events API, not a replacement for anything running.
 | Write-back triggers | all to flat files | governance → flat files; history → Events API; insight → mem0; nouns → deliberate graph write |
 | Freshness guards | flat files | flat files (Events API handles its own currency) |
 | Inter-agent messaging | `_messages/` | `_messages/` (D-LIMO-2026-09-15-01); Agent Bus is an optional transport |
-| Node trust | n/a | Mac + EC2 are canonical-trusted file-layer nodes; office is a scoped worker with no full raw sync |
+| Node trust | n/a | Explicitly designate trusted storage nodes; give other workers only the project scope they need |
 
 **Events API (A8):** use the `neo4j-events` MCP connector (`event_log`, then `event_query` to read back). A raw curl to the webhook returns
 an empty 200 on failure as well as success. The patch endpoint takes `"updates"`, not `"patches"`. Endpoints and keys live in
@@ -1166,6 +1165,7 @@ proposals sitting in `_pending/`. All WARN or INFO; nothing is auto-fixed.
 | `commit Domain --agent me --trigger "…"` | Commits `core/` only, in a marker-enabled memory repo, with stale-lock recovery | git history | Git |
 | `git-init Domain` | Creates a nested memory repo where safe; refuses where memory is tracked by a human-driven repo | `limo-populated/.git`, `.gitignore`, `.limo-memory-repo` | Git |
 | `infra [--probe]` | Diary migration state per domain, documentation drift vs `infra/SERVICE_CATALOG.md`, stale claims, optional endpoint reachability (no keys) | stdout | Infra |
+| `who [Domain …] [--since N]` | Attribution: collection entries, checkpoints, diary lines and memory commits per agent (`tool/model`) | stdout | Core |
 | `all [Domain …]` | lint + bootpack + trigger index + deadends + agentsmd | the generated files above | Core |
 
 Run from the workspace root. Runbook: `infra/runbooks/limo-lint.md`. Hooks (`tools/hooks/`): `limo-user-prompt.sh` runs `triggers` on every prompt
@@ -1234,6 +1234,7 @@ These are things that break LIMO:
 
 ## Version History
 
+- **v2.5.1 (2026-09-16)** — attribution tags `{agent:} {source:} {confidence:}` aligned with the Events API vocabulary; `who` subcommand; session-start hook prints the tag.
 - **v2.5 (2026-09-15)** — field adaptations: pull-based boot pack, trigger injection, line validity and supersession, reconcile/reflect with `_pending/`, interruption hooks, ready/claim/stall, git write-ahead log (`[Git]` level), cross-artifact lint, generated AGENTS.md, `description:`/`modified:` frontmatter, `infra` check.
 - **v2.4 (2026-09-15)** — production reconciliation: hybrid boot, memory classes, multi-agent ownership (OWNERS.md), SETTLED tables, records discipline, Director Layer, conformance levels, `limo_lint.py`, BOOT_PACK, source tags, dead-end index.
 - **v2.3** — checkpoint protocol, deterministic recovery, mutation gating, exploration tiers.
